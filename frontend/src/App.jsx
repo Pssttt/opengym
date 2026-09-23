@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
@@ -14,6 +14,8 @@ import { installChipDrag } from './lib/hchips.js'
 import { syncPushSubscription } from './lib/push.js'
 import { MOBILE } from './lib/mobile.js'
 import { startFlow, autoFinishStale } from './sheets.jsx'
+import { syncExerciseMedia } from './lib/exercises.js'
+import { initMediaCache } from './lib/media-cache.js'
 import Icon from './components/Icon.jsx'
 import TabBar from './components/TabBar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -100,6 +102,17 @@ function Shell() {
     const iv = setInterval(check, 5 * 60 * 1000)
     return () => { document.removeEventListener('visibilitychange', check); clearInterval(iv) }
   }, [ready])
+  // Fork: read the on-phone media index first thing, then render once more so the first screen
+  // already shows the local copies — at the gym that first screen is the one with no signal.
+  const [, setMediaIndexed] = useState(false)
+  useEffect(() => { if (MOBILE) initMediaCache().then(() => setMediaIndexed(true)).catch(() => {}) }, [])
+  // Fork: keep the demos of the exercises you train on the phone (lib/media-cache.js), refreshed
+  // a few seconds after the routines or the log change so an edit spree runs it once.
+  useEffect(() => {
+    if (!MOBILE || !ready) return
+    const tm = setTimeout(() => { syncExerciseMedia(useStore.getState().S).catch(() => {}) }, 3000)
+    return () => clearTimeout(tm)
+  }, [ready, S.routines, S.workouts?.length])
   // iOS leaves the page displaced after the keyboard goes away (see lib/viewport-guard.js).
   useEffect(() => installViewportGuard(), [])
   // Click-drag a horizontal chip strip to scroll it sideways (lib/hchips.js) — on a desktop
