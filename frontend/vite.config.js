@@ -56,7 +56,10 @@ const swStamp = {
 // answer from inside the app. Unset (the ordinary case, and every upstream build) it changes
 // nothing: the string is exactly package.json's version.
 const pkgVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
-const appVersion = process.env.APP_BUILD ? `${pkgVersion}+${process.env.APP_BUILD}` : pkgVersion
+// Fork: CI sets APP_VERSION_SUFFIX=psst.<run> instead, as a pre-release part ("1.3.9-psst.4") the
+// update check compares — build metadata after "+" is ignored there by design.
+const appVersion = process.env.APP_VERSION_SUFFIX ? `${pkgVersion}-${process.env.APP_VERSION_SUFFIX}`
+  : process.env.APP_BUILD ? `${pkgVersion}+${process.env.APP_BUILD}` : pkgVersion
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(appVersion) },
