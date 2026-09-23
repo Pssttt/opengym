@@ -41,7 +41,13 @@ export async function checkForUpdate() {
   if (!cached) cached = fetchLatest().catch(e => { cached = null; throw e })
   return cached
 }
+// Fork: upstream's releases are signed with upstream's key and would never install over this
+// build, and this fork's own releases are private. So the in-app check always reports current;
+// new builds come from the fork's GitHub Releases instead. The fork's APK workflow builds with
+// VITE_UPDATE_CHECK=0; tests and upstream-style builds keep the check.
+const UPDATE_CHECK = import.meta.env.VITE_UPDATE_CHECK !== '0'
 async function fetchLatest() {
+  if (!UPDATE_CHECK) return { hasUpdate: false, latestVersion: __APP_VERSION__, apkUrl: null, hashUrl: null }
   const res = await fetch(RELEASES_URL + '?per_page=1')
   if (!res.ok) throw new Error(`GitLab API ${res.status}`)
   const releases = await res.json()
