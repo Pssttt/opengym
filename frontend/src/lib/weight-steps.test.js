@@ -69,3 +69,12 @@ describe('unit switch', () => {
     expect(out.exSteps.a[0]).toBeLessThan(out.exSteps.a[1])
   })
 })
+
+describe('sync merge', () => {
+  it('keeps the steps set on either device', async () => {
+    const { mergeStates } = await import('./sync-merge.js')
+    const base = { workouts: [], routines: [], bodyweight: [], customEx: [], exWeights: {} }
+    const out = mergeStates({ ...base, _ts: 2, exSteps: { a: [18, 25] } }, { ...base, _ts: 1, exSteps: { b: [5, 10] } })
+    expect(out.exSteps).toEqual({ a: [18, 25], b: [5, 10] })
+  })
+})

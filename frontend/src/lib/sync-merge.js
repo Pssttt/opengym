@@ -28,7 +28,7 @@
  *     forgotten, whichever way it runs). An exercise in a workout whose edited version was kept
  *     is the exception: the edit may have taken away the set the kept weight came from, so it
  *     is the best of the merged history and of the editing copy's own, and the other copy's
- *     can no longer bring a corrected typo back. exNotes, barWeights: key union
+ *     can no longer bring a corrected typo back. exNotes, barWeights, exSteps: key union
  *   - balanceOverrides, loadKind, plates: key union; of a key both have, the entry set last by
  *     its own `_ts`, a clear included (mergeStampedMap), the newer copy's on a tie. For plates the
  *     key is the unit, so the inventory of one unit is kept whole, as last edited
@@ -393,7 +393,7 @@ export function mergeStates(a0, b0, { prefer } = {}) {
     if (kept) out.exWeights[id] = clone(kept)
     else delete out.exWeights[id]
   }
-  for (const f of ['exNotes', 'barWeights']) {
+  for (const f of ['exNotes', 'barWeights', 'exSteps']) {
     if (n[f] || o[f]) out[f] = clone({ ...(o[f] || {}), ...(n[f] || {}) })
   }
   // The plate-loading choices (lib/plates.js) are stamped the same way: an exercise's loading and
