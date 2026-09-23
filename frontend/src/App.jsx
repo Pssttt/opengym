@@ -13,7 +13,7 @@ import { installViewportGuard } from './lib/viewport-guard.js'
 import { installChipDrag } from './lib/hchips.js'
 import { syncPushSubscription } from './lib/push.js'
 import { MOBILE } from './lib/mobile.js'
-import { startFlow } from './sheets.jsx'
+import { startFlow, autoFinishStale } from './sheets.jsx'
 import Icon from './components/Icon.jsx'
 import TabBar from './components/TabBar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -89,6 +89,17 @@ function Shell() {
   // The position is recorded from scroll events rather than read at route
   // change, because by then a shorter page may already have clamped it.
   const pathRef = useRef(null)
+  // Fork: close a session forgotten mid-workout (lib/auto-finish.js). Checked at start-up, on
+  // every return to the foreground (the usual moment: the phone is unlocked hours later) and
+  // every few minutes while the app stays open.
+  useEffect(() => {
+    if (!ready) return
+    const check = () => { if (!document.hidden) autoFinishStale() }
+    check()
+    document.addEventListener('visibilitychange', check)
+    const iv = setInterval(check, 5 * 60 * 1000)
+    return () => { document.removeEventListener('visibilitychange', check); clearInterval(iv) }
+  }, [ready])
   // iOS leaves the page displaced after the keyboard goes away (see lib/viewport-guard.js).
   useEffect(() => installViewportGuard(), [])
   // Click-drag a horizontal chip strip to scroll it sideways (lib/hchips.js) — on a desktop

@@ -933,6 +933,8 @@ function ActiveWorkout() {
       if (side) e.sets[i] = toggleSide(e.sets[i], side)
       else e.sets[i].done = !e.sets[i].done
       checked = e.sets[i].done
+      // Fork: when the session was last worked, so a forgotten one auto-finishes there.
+      if (checked) s.active.lastSetAt = Date.now()
       // A finished row has no use for a plan set aside by a hold that did not finish.
       if (checked && e.sets[i].planSec != null) delete e.sets[i].planSec
       if (e.sets[i].done) {
