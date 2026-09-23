@@ -33,6 +33,11 @@ Fork-only changes are kept in separate files where possible (`custom.gradle`,
 - Auto-finish: a workout idle for 3 h ends at its last set (`frontend/src/lib/auto-finish.js`)
 - Weight steps: per-exercise real machine weights; progression and the set +/- move rung to
   rung (`frontend/src/lib/weight-steps.js`, exercise menu → Weight steps)
+- In-app update check reads this fork's GitHub releases (`VITE_UPDATE_REPO`, build number in
+  the version via `APP_VERSION_SUFFIX`)
+- Offline exercise media: routine and recent exercises' images/GIFs kept on the phone
+  (`frontend/src/lib/media-cache.js`, upstream issue #281)
+- arm64-only APK (upstream issue #136), about 15 MB smaller
 - Weekly upstream-release check that opens an issue (`.github/workflows/upstream-release.yml`)
 - Separate app id and name, CI-number versionCode (`frontend/android/app/custom.gradle`)
 - Update check disabled at build time (`frontend/src/lib/update.js`)
