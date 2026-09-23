@@ -48,7 +48,8 @@ jobs:
       - name: Build web bundle and sync into android/
         working-directory: frontend
         env:
-          VITE_UPDATE_CHECK: '0'
+          VITE_UPDATE_REPO: ${{ github.repository }}
+          APP_VERSION_SUFFIX: psst.${{ github.run_number }}
         run: npm run build:mobile
       - name: Build release APK
         working-directory: frontend/android

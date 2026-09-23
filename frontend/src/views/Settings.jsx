@@ -15,7 +15,7 @@ import { t, LANGS, INSTR_LANGS } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { MOBILE, isAndroid, shareExport, syncReminder } from '../lib/mobile.js'
 import { setRestAccent } from '../lib/rest-alert.js'
-import { checkForUpdate, downloadAndInstall } from '../lib/update.js'
+import { checkForUpdate, downloadAndInstall, fetchUpdateText, RELEASES_PAGE } from '../lib/update.js'
 import { forgetCoach } from '../lib/coach-api.js'
 import { ConnectSheet } from './MobileOnboarding.jsx'
 import { starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, plateInventorySheet, menuSheet, askAddDeviceData } from '../sheets.jsx'
@@ -100,8 +100,7 @@ export default function Settings() {
             let expectedHash = null
             if (updateInfo.hashUrl) {
               try {
-                const hashRes = await fetch(updateInfo.hashUrl)
-                if (hashRes.ok) expectedHash = (await hashRes.text()).split(/\s/)[0]
+                expectedHash = (await fetchUpdateText(updateInfo.hashUrl)).split(/\s/)[0]
               } catch (e) { /* reported below */ }
             }
             if (!/^[0-9a-f]{64}$/i.test(expectedHash || '')) throw new Error(t('Checksum not available — not installing'))
@@ -117,7 +116,7 @@ export default function Settings() {
       })
     } else {
       // Update available but no APK asset — open the releases page
-      window.open('https://gitlab.com/DuarteSantos8/opengym/-/releases', '_blank', 'noopener')
+      window.open(RELEASES_PAGE, '_blank', 'noopener')
     }
   }
 

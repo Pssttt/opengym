@@ -10,14 +10,24 @@ import { MOBILE } from './mobile.js'
 const GITLAB_PROJECT_ID = 'DuarteSantos8%2Fopengym'
 const RELEASES_URL = `https://gitlab.com/api/v4/projects/${GITLAB_PROJECT_ID}/releases`
 
+// Fork: with VITE_UPDATE_REPO ("owner/repo") the check reads that GitHub repository's latest
+// release instead of GitLab, and downloads through native HTTP: GitHub's asset host sends no
+// CORS header, so a WebView fetch of the APK would be refused.
+const UPDATE_REPO = import.meta.env.VITE_UPDATE_REPO || ''
+export const RELEASES_PAGE = UPDATE_REPO
+  ? `https://github.com/${UPDATE_REPO}/releases`
+  : 'https://gitlab.com/DuarteSantos8/opengym/-/releases'
+
 /**
- * Compares two semver strings (e.g. "1.2.11" vs "1.3.0").
+ * Compares two version strings (e.g. "1.2.11" vs "1.3.0", or the fork's "1.3.8-psst.5").
+ * Every number counts in order, so a fork build number breaks a tie on the upstream version.
  * Returns  1 if a > b, -1 if a < b, 0 if equal.
  */
-function compareSemver(a, b) {
-  const pa = a.replace(/^v/, '').split('.').map(Number)
-  const pb = b.replace(/^v/, '').split('.').map(Number)
-  for (let i = 0; i < 3; i++) {
+export function compareSemver(a, b) {
+  const nums = v => v.replace(/^v/, '').split(/[.-]/).map(Number).filter(Number.isFinite)
+  const pa = nums(a)
+  const pb = nums(b)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const diff = (pa[i] || 0) - (pb[i] || 0)
     if (diff > 0) return 1
     if (diff < 0) return -1
@@ -41,13 +51,13 @@ export async function checkForUpdate() {
   if (!cached) cached = fetchLatest().catch(e => { cached = null; throw e })
   return cached
 }
-// Fork: upstream's releases are signed with upstream's key and would never install over this
-// build, and this fork's own releases are private. So the in-app check always reports current;
-// new builds come from the fork's GitHub Releases instead. The fork's APK workflow builds with
-// VITE_UPDATE_CHECK=0; tests and upstream-style builds keep the check.
+// Fork: VITE_UPDATE_CHECK=0 switches the check off entirely. The fork's APK is built with
+// VITE_UPDATE_REPO instead, since upstream's APK is signed with another key and would never
+// install over it.
 const UPDATE_CHECK = import.meta.env.VITE_UPDATE_CHECK !== '0'
 async function fetchLatest() {
   if (!UPDATE_CHECK) return { hasUpdate: false, latestVersion: __APP_VERSION__, apkUrl: null, hashUrl: null }
+  if (UPDATE_REPO) return fetchLatestGitHub()
   const res = await fetch(RELEASES_URL + '?per_page=1')
   if (!res.ok) throw new Error(`GitLab API ${res.status}`)
   const releases = await res.json()
@@ -71,6 +81,45 @@ async function fetchLatest() {
   return { hasUpdate, latestVersion, apkUrl, hashUrl }
 }
 
+async function fetchLatestGitHub() {
+  const res = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases/latest`)
+  if (res.status === 404) return { hasUpdate: false, latestVersion: __APP_VERSION__, apkUrl: null, hashUrl: null }
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`)
+  const latest = await res.json()
+  const latestVersion = latest.tag_name.replace(/^v/, '')
+  // The API's asset URL (with Accept: application/octet-stream), not browser_download_url:
+  // it is the one GitHub serves the file from for a client that is not a browser.
+  const asset = re => (latest.assets || []).find(a => re.test(a.name))
+  const apk = asset(/\.apk$/i)
+  const hash = asset(/\.apk\.sha256$/i)
+  return {
+    hasUpdate: compareSemver(latestVersion, __APP_VERSION__) > 0,
+    latestVersion,
+    apkUrl: apk ? apk.url : null,
+    hashUrl: hash ? hash.url : null,
+  }
+}
+
+// Native GET for a release asset (see UPDATE_REPO). `as` is 'text' or 'blob'; a blob comes back
+// base64-encoded from the Android bridge.
+async function nativeGet(url, as) {
+  const { CapacitorHttp } = await import('@capacitor/core')
+  const res = await CapacitorHttp.get({ url, headers: { Accept: 'application/octet-stream' }, responseType: as })
+  if (res.status < 200 || res.status >= 300) throw new Error(`Download failed: ${res.status}`)
+  return res.data
+}
+const isGitHubAsset = url => /^https:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/releases\/assets\//.test(url)
+
+// The checksum file next to the APK, as text.
+export async function fetchUpdateText(url) {
+  if (MOBILE && isGitHubAsset(url)) return String(await nativeGet(url, 'text'))
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`)
+  return res.text()
+}
+
+const base64ToBytes = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+
 /**
  * Computes the SHA-256 hash of an ArrayBuffer using the Web Crypto API.
  * Returns the hex-encoded digest string.
@@ -92,11 +141,29 @@ export async function sha256(buffer) {
 export async function downloadAndInstall(url, expectedHash = null, onProgress = null) {
   if (!MOBILE) {
     // On web, just open the release page
-    window.open('https://gitlab.com/DuarteSantos8/opengym/-/releases', '_blank', 'noopener')
+    window.open(RELEASES_PAGE, '_blank', 'noopener')
     return
   }
 
   const { Filesystem, Directory } = await import('@capacitor/filesystem')
+
+  // Fork: a GitHub release asset comes through native HTTP in one piece (no progress stream).
+  if (isGitHubAsset(url)) {
+    if (onProgress) onProgress(0, 0)
+    const base64 = String(await nativeGet(url, 'blob'))
+    const bytes = base64ToBytes(base64)
+    if (onProgress) onProgress(bytes.length, bytes.length)
+    if (bytes.length < 100_000) throw new Error('Downloaded file is too small to be a valid APK (' + bytes.length + ' bytes)')
+    if (expectedHash) {
+      const actualHash = await sha256(bytes.buffer)
+      if (actualHash !== expectedHash.toLowerCase().trim()) throw new Error('SHA-256 mismatch — download may be corrupted or tampered with')
+    }
+    const fileName = 'opengym-update.apk'
+    await Filesystem.writeFile({ path: fileName, directory: Directory.Cache, data: base64 })
+    const { registerPlugin } = await import('@capacitor/core')
+    await registerPlugin('Install').installApk({ fileName })
+    return
+  }
 
   // Download with progress tracking via ReadableStream
   const res = await fetch(url)

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { checkForUpdate, sha256, resetUpdateCheck } from './update.js'
+import { checkForUpdate, sha256, resetUpdateCheck, compareSemver } from './update.js'
 
 // __APP_VERSION__ is defined at build time by vite.config.js (reads package.json).
 // In the test environment vitest applies the same define, so it's available here.
@@ -278,5 +278,16 @@ describe('semver comparison (via checkForUpdate behavior)', () => {
     // minus one on the minor when possible.
     mockRelease('v' + [MAJ, Math.max(0, MIN - 1), 0].join('.'))
     expect((await checkForUpdate()).hasUpdate).toBe(false)
+  })
+})
+
+describe('compareSemver with fork build numbers', () => {
+  it('orders two fork builds of one upstream version by their build number', () => {
+    expect(compareSemver('1.3.8-psst.6', '1.3.8-psst.5')).toBe(1)
+    expect(compareSemver('v1.3.8-psst.5', '1.3.8-psst.5')).toBe(0)
+  })
+  it('puts a newer upstream version above any fork build of the old one', () => {
+    expect(compareSemver('1.3.9-psst.1', '1.3.8-psst.40')).toBe(1)
+    expect(compareSemver('1.3.8', '1.3.8-psst.2')).toBe(-1)
   })
 })

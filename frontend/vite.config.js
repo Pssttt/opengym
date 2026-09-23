@@ -49,7 +49,10 @@ const swStamp = {
 // The version people are asked for in #install-help and on every bug report. Read from
 // package.json so it cannot drift from the release it was built in, and inlined at build
 // time so no runtime fetch is involved.
+// Fork: CI appends the build (APP_VERSION_SUFFIX=psst.<run>) so two fork builds of the same
+// upstream version still compare as older and newer in the update check.
 const pkgVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
+  + (process.env.APP_VERSION_SUFFIX ? '-' + process.env.APP_VERSION_SUFFIX : '')
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(pkgVersion) },
