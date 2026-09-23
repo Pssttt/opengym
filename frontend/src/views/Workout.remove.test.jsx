@@ -196,30 +196,6 @@ describe('active-session exercise removal', () => {
   })
 })
 
-describe('remove-exercise locale coverage', () => {
-  const required = [
-    'Remove {0}?',
-    'The sets you logged for this exercise in this session will be lost.',
-    'This removes the exercise from your current session.',
-    'Remove',
-    'Which exercise in this superset do you want to remove?'
-  ]
-  const packs = import.meta.glob('../locales/*.js', { eager: true, import: 'default' })
-  // Every non-English language has its own pack (English is the source, so it has none),
-  // except a derived locale such as de-CH, which transforms its base language's pack at load
-  // time — computed from LANGS rather than hardcoded so adding a language doesn't silently
-  // understate this test's own coverage.
-  const nonEnglishLangCount = Object.keys(LANGS)
-    .filter(code => code !== 'en' && !DERIVED_LOCALES[code]).length
-
-  it('defines every new prompt in every non-English locale pack', () => {
-    expect(Object.keys(packs)).toHaveLength(nonEnglishLangCount)
-    Object.entries(packs).forEach(([path, pack]) => {
-      required.forEach(key => expect(pack, `${path} is missing ${key}`).toHaveProperty(key))
-    })
-  })
-})
-
 describe('remove-exercise edge cases', () => {
   it('removing the last remaining exercise leaves an empty, coherent session', () => {
     setActive([entry('a')], 0)

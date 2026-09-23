@@ -29,4 +29,13 @@ Fork-only changes are kept in separate files where possible (`custom.gradle`,
 - Upstream PR #296: Android rest countdown in a notification
 - Separate app id and name, CI-number versionCode (`frontend/android/app/custom.gradle`)
 - Update check disabled at build time (`frontend/src/lib/update.js`)
-- Upstream's mirror, Pages and Docker publish workflows removed
+- English only: every other language pack, its tests and generators removed
+- Upstream's mirror, Pages, Docker publish and Dependabot configs removed
+
+## Merging upstream after the English-only cut
+Upstream keeps editing `frontend/src/locales/*`, `src/instr/*` and `src/exercise-names/*`.
+A merge that touches them stops with modify/delete conflicts; resolve them by deleting again:
+```bash
+git status --short | awk '/^(DU|UD) /{print $2}' | xargs git rm -q
+```
+New upstream tests that import a locale pack need the same cut before they pass.

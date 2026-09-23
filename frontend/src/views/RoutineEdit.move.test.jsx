@@ -9,7 +9,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import RoutineEdit from './RoutineEdit.jsx'
 import { DEF, useStore } from '../store/useStore.js'
 import { _setLangState } from '../lib/i18n-core.js'
-import de from '../locales/de.js'
 import { buildPlanBundle, parsePlan } from '../lib/plan-share.js'
 
 const cssSource = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
@@ -181,20 +180,6 @@ describe('routine move controls', () => {
     expect(localStorage.getItem('gym_state_v1')).toBeNull()
   })
 
-  it('uses localized accessible names and titles, retains button focus, and does not open config', () => {
-    _setLangState('de', de, null, null)
-    setRoutine([entry('c1', 10), entry('c2', 20)])
-    renderRoutine()
-    const button = moveButton('c2', 'Nach oben')
-
-    expect(button.title).toBe('Nach oben')
-    button.focus()
-    act(() => button.click())
-
-    expect(document.activeElement?.tagName).toBe('BUTTON')
-    expect(mocks.exConfigSheet).not.toHaveBeenCalled()
-  })
-
   it('retains reordered occurrence order and grouping through plan export and import', () => {
     setRoutine([
       entry('c1', 10, 'g'),
@@ -210,17 +195,5 @@ describe('routine move controls', () => {
       entry('c1', 10, 'g'),
       entry('c2', 20, 'g')
     ])
-  })
-})
-
-describe('routine move-control locale coverage', () => {
-  const packs = import.meta.glob('../locales/*.js', { eager: true, import: 'default' })
-
-  it('defines both accessible names in every non-English locale pack', () => {
-    expect(Object.keys(packs)).toHaveLength(Object.keys(LANGS).filter(c => c !== 'en' && !DERIVED_LOCALES[c]).length)
-    Object.entries(packs).forEach(([path, pack]) => {
-      expect(pack, `${path} is missing Move up`).toHaveProperty('Move up')
-      expect(pack, `${path} is missing Move down`).toHaveProperty('Move down')
-    })
   })
 })
