@@ -27,6 +27,13 @@ Fork-only changes are kept in separate files where possible (`custom.gradle`,
 
 ## Fork-only changes
 - Upstream PR #296: Android rest countdown in a notification
+- Upstream PRs #297 (double progression waits for the top of the range), #229 (edit past
+  workouts), #194 (plate loading per set row), #251 (rest timer vs timed hold), #288 (RIR/RPE
+  typing no longer ticks the set)
+- Auto-finish: a workout idle for 3 h ends at its last set (`frontend/src/lib/auto-finish.js`)
+- Weight steps: per-exercise real machine weights; progression and the set +/- move rung to
+  rung (`frontend/src/lib/weight-steps.js`, exercise menu → Weight steps)
+- Weekly upstream-release check that opens an issue (`.github/workflows/upstream-release.yml`)
 - Separate app id and name, CI-number versionCode (`frontend/android/app/custom.gradle`)
 - Update check disabled at build time (`frontend/src/lib/update.js`)
 - English only: every other language pack, its tests and generators removed
