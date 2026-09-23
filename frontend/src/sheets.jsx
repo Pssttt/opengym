@@ -51,6 +51,7 @@ import { stampWorkout } from './lib/sync-merge.js'
 import { weeklyWeights } from './lib/bodyweight.js'
 import { workoutText } from './lib/workout-text.js'
 import { copyText } from './lib/clipboard.js'
+import { staleActiveEnd } from './lib/auto-finish.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -2635,7 +2636,17 @@ export function finishWorkout() {
   if (done < total) { confirmSheet({ title: t('Finish early?'), message: t(total - done === 1 ? '{0} set still unchecked. Finish the workout now?' : '{0} sets still unchecked. Finish the workout now?', total - done), confirmText: t('Finish workout'), onConfirm: doFinishWorkout }); return }
   doFinishWorkout()
 }
-function doFinishWorkout() {
+// Fork: closes a session left running for AUTO_FINISH_MS without a tick (lib/auto-finish.js),
+// recording it as ending at its last set. Quiet — no sounds, no summary sheet; a toast says why.
+export function autoFinishStale(now = Date.now()) {
+  const A = S().active
+  const end = staleActiveEnd(A, now)
+  if (end == null) return false
+  doFinishWorkout({ end, quiet: true })
+  useUI.getState().toast(t('{0} was finished automatically at its last set', A.name || t('Workout')))
+  return true
+}
+function doFinishWorkout({ end = null, quiet = false } = {}) {
   const st = S()
   const A = st.active
   if (!A) return
@@ -2656,7 +2667,7 @@ function doFinishWorkout() {
     if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec })
   })
   const w = buildCompletedWorkout(A, {
-    end: past ? backfillEnd(A) : Date.now(),
+    end: past ? backfillEnd(A) : (end ?? Date.now()),
     prs,
     snapshotFor: e => EXIDX[e.id]?.custom ? exerciseMuscleSnapshot(EXIDX[e.id]) : null,
   })
@@ -2683,6 +2694,7 @@ function doFinishWorkout() {
   })
   useStore.getState().autoBackupNow()
   useUI.getState().stopRest()
+  if (quiet) return
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
   ui().openSheet(close => <FinishSummary w={shown} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
 }
