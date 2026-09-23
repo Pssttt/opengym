@@ -99,6 +99,8 @@ export function convertStateUnit(S, to) {
   // (lib/plates.js), because a 45 lb plate does not become a 20.4 kg one. After the switch the
   // rows load from the new unit's own list, or the standard set until you count yours, and
   // switching back finds the old list as you left it. The load kinds (S.loadKind) hold no weight.
+  // Fork: weight-step ladders move with every other stored weight.
+  if (S.exSteps) out.exSteps = Object.fromEntries(Object.entries(S.exSteps).map(([k, l]) => [k, (l || []).map(c)]))
   if (Array.isArray(S.routines)) out.routines = S.routines.map(r => ({ ...r, ex: (r.ex || []).map(cfg => convTarget(cfg, from, to)) }))
   if (Array.isArray(S.workouts)) out.workouts = S.workouts.map(convSession)
   if (S.active) out.active = convSession(S.active)
