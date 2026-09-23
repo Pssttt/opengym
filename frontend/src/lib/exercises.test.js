@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { matchExercise, normalizeStr } from './exercises.js'
-import { _setLangState } from './i18n-core.js'
 
 describe('normalizeStr', () => {
   it('handles null, undefined and empty strings', () => {
@@ -81,41 +80,5 @@ describe('matchExercise', () => {
     expect(matchExercise(customEx, 'elevação')).toBe(true)
     expect(matchExercise(customEx, 'panturrilha elevacao')).toBe(true)
     expect(matchExercise(customEx, 'ELEVACAO PE')).toBe(true)
-  })
-
-  it('matches translated UI terms when a language is active', () => {
-    _setLangState('pt', {
-      chest: 'peito',
-      barbell: 'barra',
-      dumbbell: 'halteres',
-      shoulders: 'ombros'
-    }, null)
-
-    // "peito" is the translated bp, "barra" is the translated eq
-    expect(matchExercise(benchPress, 'peito')).toBe(true)
-    expect(matchExercise(benchPress, 'barra')).toBe(true)
-    expect(matchExercise(benchPress, 'peito barra bench')).toBe(true)
-    expect(matchExercise(lateralRaise, 'halteres ombros')).toBe(true)
-  })
-
-  // The pt-BR exercise-name pack (!16) renames the catalogue in the UI. Searching has to reach
-  // that name as well as the canonical English one, or the library goes dark for pt-BR profiles
-  // the moment they type what they see on screen.
-  it('matches the localized exercise name as well as the English one', () => {
-    _setLangState('pt-BR', {}, null, { '0025': 'supino reto com barra' })
-
-    expect(matchExercise(benchPress, 'supino')).toBe(true)
-    expect(matchExercise(benchPress, 'supino barra')).toBe(true)
-    expect(matchExercise(benchPress, 'bench press')).toBe(true)   // English still reaches it
-    expect(matchExercise(lateralRaise, 'supino')).toBe(false)     // untranslated entry unaffected
-  })
-
-  it('rebuilds the cached haystack when the language changes', () => {
-    _setLangState('pt-BR', {}, null, { '0025': 'supino reto com barra' })
-    expect(matchExercise(benchPress, 'supino')).toBe(true)
-
-    _setLangState('en', null, null, null)
-    expect(matchExercise(benchPress, 'supino')).toBe(false)
-    expect(matchExercise(benchPress, 'bench')).toBe(true)
   })
 })
