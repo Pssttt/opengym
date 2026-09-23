@@ -93,6 +93,8 @@ export function convertStateUnit(S, to) {
   if (S.targetW != null) out.targetW = bw(S.targetW)
   if (S.exWeights) out.exWeights = Object.fromEntries(Object.entries(S.exWeights).map(([k, v]) => [k, v && typeof v === 'object' ? { ...v, w: c(v.w) } : c(v)]))
   if (S.barWeights) out.barWeights = convBarWeights(S.barWeights, from, to)
+  // Fork: weight-step ladders move with every other stored weight.
+  if (S.exSteps) out.exSteps = Object.fromEntries(Object.entries(S.exSteps).map(([k, l]) => [k, (l || []).map(c)]))
   if (Array.isArray(S.routines)) out.routines = S.routines.map(r => ({ ...r, ex: (r.ex || []).map(cfg => convTarget(cfg, from, to)) }))
   if (Array.isArray(S.workouts)) out.workouts = S.workouts.map(convSession)
   if (S.active) out.active = convSession(S.active)

@@ -13,6 +13,7 @@ import {
 } from '../lib/history.js'
 import { effortColor } from '../lib/effort.js'
 import { stepWeight, weightIncrement, defaultIncrement } from '../lib/progression.js'
+import { ladderOf, ladderStep } from '../lib/weight-steps.js'
 import {
   isWarmupRow, isDropSet, isRestPauseSet, dropsOf, clustersOf,
   addDrop, addCluster, removeDropAt, removeClusterAt, setDropAt, setClusterAt,
@@ -390,7 +391,7 @@ export default function WorkoutEdit() {
           const perSide = mode === 'reps' && isPerSide(cfg)
           const added = bw && entry.sets.some(s => s.w > 0)
           const loadStep = mode === 'reps' ? weightIncrement(cfg, S.unit) : 2.5
-          const loadCol = { f: 'w', step: loadStep, dec: true, hd: bw ? t('Added ({0})', S.unit) : t('Weight ({0})', S.unit) }
+          const loadCol = { f: 'w', step: loadStep, ladder: mode === 'reps' ? ladderOf(S, entry.id) : null, dec: true, hd: bw ? t('Added ({0})', S.unit) : t('Weight ({0})', S.unit) }
           const repCol = { f: 'r', step: repStep(cfg), dec: false, hd: t('Reps') }
           const col1 = cardio ? { f: 'min', step: 1, dec: false, hd: t('Duration (min)') }
             : timed ? { f: 'sec', step: 5, dec: false, hd: t('Seconds') }
@@ -402,7 +403,7 @@ export default function WorkoutEdit() {
 
           const bump = (s, i, col, dir) => {
             const cur = s[col.f]
-            if (mode === 'reps' && col.f === 'w') return setField(entryIdx, i, col.f, stepWeight(cur, col.step, dir))
+            if (mode === 'reps' && col.f === 'w') return setField(entryIdx, i, col.f, (col.ladder ? ladderStep(col.ladder, cur, dir) : stepWeight(cur, col.step, dir)))
             setField(entryIdx, i, col.f, Math.max(0, Math.round(((cur || 0) + dir * col.step) * 100) / 100))
           }
 
@@ -437,7 +438,7 @@ export default function WorkoutEdit() {
           const sideBump = (sd, i, side, col, dir) => {
             const cur = sd[col.f] || 0
             if (col.f === 'w') {
-              mutSet(entryIdx, i, row => setSideField(row, side, col.f, stepWeight(cur, col.step, dir)))
+              mutSet(entryIdx, i, row => setSideField(row, side, col.f, (col.ladder ? ladderStep(col.ladder, cur, dir) : stepWeight(cur, col.step, dir))))
               return
             }
             const step = col.f === 'r' ? 1 : col.step

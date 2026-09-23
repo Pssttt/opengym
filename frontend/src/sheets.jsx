@@ -39,6 +39,7 @@ import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
 import { staleActiveEnd } from './lib/auto-finish.js'
+import { parseLadder, formatLadder, stackLadder } from './lib/weight-steps.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -653,6 +654,49 @@ function BarWeightSheet({ exId, cfg, close }) {
   </>
 }
 export const barWeightSheet = (exId, cfg) => ui().openSheet(close => <BarWeightSheet exId={exId} cfg={cfg} close={close} />)
+
+// Fork: the real weights one exercise's machine offers (lib/weight-steps.js). Typed as a list, or
+// filled from a pound stack — the common case, a 15 lb stack read in kg as 18, 25, 32, 39…
+function WeightStepsSheet({ exId, close }) {
+  const st = useStore(s => s.S)
+  const unit = st.unit || 'kg'
+  const saved = st.exSteps?.[exId] || []
+  const [text, setText] = useState(formatLadder(saved))
+  const [first, setFirst] = useState(10)
+  const [step, setStep] = useState(15)
+  const [count, setCount] = useState(15)
+  const ladder = parseLadder(text)
+  const save = () => {
+    update(s => {
+      s.exSteps = s.exSteps || {}
+      if (ladder.length >= 2) s.exSteps[exId] = ladder
+      else delete s.exSteps[exId]
+    })
+    close()
+  }
+  const clear = () => { update(s => { if (s.exSteps) delete s.exSteps[exId] }); close() }
+  return <>
+    <h3>{t('Weight steps')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>
+      {t('The weights this machine actually has, in {0}. Progression and the +/− buttons move from one to the next instead of adding a fixed step.', unit)}
+    </div>
+    <input className="input" inputMode="decimal" value={text} placeholder="18, 25, 32, 39, 45"
+      onChange={e => setText(e.target.value)} style={{ marginBottom: 6 }} />
+    <div className="small dim" style={{ marginBottom: 16 }}>
+      {ladder.length >= 2 ? t('{0} steps, {1}–{2} {3}', ladder.length, ladder[0], ladder[ladder.length - 1], unit) : t('Enter at least two weights, separated by commas.')}
+    </div>
+    <h4 className="sec">{t('Fill from a pound stack')}</h4>
+    <div className="row cfgrow" style={{ marginBottom: 8 }}>
+      <Stepper label={t('First (lb)')} value={first} step={5} decimal={false} onChange={setFirst} />
+      <Stepper label={t('Step (lb)')} value={step} step={5} decimal={false} onChange={setStep} />
+      <Stepper label={t('Plates')} value={count} step={1} decimal={false} onChange={setCount} />
+    </div>
+    <Button onClick={() => setText(formatLadder(stackLadder({ first, step, count }, unit)))} style={{ marginBottom: 14 }}>{t('Fill')}</Button>
+    {saved.length > 0 && <Button onClick={clear} style={{ marginBottom: 8 }}>{t('Remove weight steps')}</Button>}
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+  </>
+}
+export const weightStepsSheet = exId => ui().openSheet(close => <WeightStepsSheet exId={exId} close={close} />)
 
 // The plates you own, as pairs per size, for the profile's unit (Settings → Equipment → Plates).
 // The first edit copies the standard set into S.plates[unit] and changes one count in it, so the

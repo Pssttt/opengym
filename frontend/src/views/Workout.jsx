@@ -13,11 +13,12 @@ import { t, exerciseNameFor } from '../lib/i18n.js'
 import { api, appBase } from '../lib/api.js'
 import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor, warmupRestSecFor } from '../lib/supersetFlow.js'
 import Media from '../components/Media.jsx'
-import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, finishWorkout, workoutCompleteSheet, confirmSheet, exerciseNoteSheet, sessionNoteSheet, renameWorkoutSheet, swapActiveWorkoutExercise, barWeightSheet, menuSheet, effortPickerSheet, exerciseHistorySheet, addRoutineToSessionSheet } from '../sheets.jsx'
+import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, finishWorkout, workoutCompleteSheet, confirmSheet, exerciseNoteSheet, sessionNoteSheet, renameWorkoutSheet, swapActiveWorkoutExercise, barWeightSheet, weightStepsSheet, menuSheet, effortPickerSheet, exerciseHistorySheet, addRoutineToSessionSheet } from '../sheets.jsx'
 import { effortColor } from '../lib/effort.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription, defaultIncrement, weightIncrement, stepWeight } from '../lib/progression.js'
+import { ladderOf, ladderStep } from '../lib/weight-steps.js'
 import { progressionGuidance } from '../lib/progression-copy.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { isWarmupRow, isDropSet, isRestPauseSet, dropsOf, clustersOf, addDrop, addCluster, removeDropAt, removeClusterAt, setDropAt, setClusterAt, nextDropWeight, nextBurstReps, isSideSet, makeSideSet, setSideField, toggleSide, addSideDrop, removeSideDropAt, setSideDropAt, addSideCluster, removeSideClusterAt, setSideClusterAt } from '../lib/workout-model.js'
@@ -155,7 +156,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
   const perSide = mode === 'reps' && isPerSide(cfg)
   const added = bw && entry.sets.some(s => s.w > 0)
   const loadStep = mode === 'reps' ? weightIncrement(cfg, S.unit) : 2.5
-  const loadCol = { f: 'w', step: loadStep, dec: true, hd: bw ? t('Added ({0})', S.unit) : t('Weight ({0})', S.unit) }
+  const loadCol = { f: 'w', step: loadStep, ladder: mode === 'reps' ? ladderOf(S, entry.id) : null, dec: true, hd: bw ? t('Added ({0})', S.unit) : t('Weight ({0})', S.unit) }
   // The reps column is the total in every mode, unilateral included — the stepper walks in
   // twos there so the number you land on is one you can actually split evenly.
   const repCol = { f: 'r', step: repStep(cfg), dec: false, hd: t('Reps') }
@@ -183,7 +184,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
     // closure problem entirely and keeps every tap operating on the real current value.
     const fresh = useStore.getState().S.active?.entries[entryIdx]?.sets[i]
     const cur = fresh ? fresh[col.f] : s[col.f]
-    if (mode === 'reps' && col.f === 'w') return onField(i, col.f, stepWeight(cur, col.step, dir))
+    if (mode === 'reps' && col.f === 'w') return onField(i, col.f, (col.ladder ? ladderStep(col.ladder, cur, dir) : stepWeight(cur, col.step, dir)))
     onField(i, col.f, Math.max(0, Math.round(((cur || 0) + dir * col.step) * 100) / 100))
   }
   // Uses the shared stepper markup so a set row picks up the same control styling
@@ -262,6 +263,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
       { icon: 'history', label: t('History'), sub: last ? t('Last time') + ' ' + fmtDate(last.d) : undefined, onClick: () => exerciseHistorySheet(entry.id) },
       onProgressionSettings && { icon: 'chartLine', label: t('Progression settings'), sub: guidance ? t(guidance.policyLabel) : undefined, onClick: onProgressionSettings },
       mode === 'reps' && { icon: 'plate', label: t('Plate loading'), sub: loadSummary, onClick: () => barWeightSheet(entry.id, cfg) },
+      mode === 'reps' && { icon: 'scale', label: t('Weight steps'), sub: S.exSteps?.[entry.id]?.length ? S.exSteps[entry.id].join(' · ') : undefined, onClick: () => weightStepsSheet(entry.id) },
       { icon: 'flame', label: t('Add warm-up set'), onClick: onAddWarmup },
       onPairPrev && { icon: 'link', label: t('Make superset with previous'), onClick: onPairPrev },
       onPairNext && { icon: 'link', label: t('Make superset with next'), onClick: onPairNext },
@@ -326,7 +328,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
   const sideBump = (i, side, col, dir) => {
     const fresh = useStore.getState().S.active?.entries[entryIdx]?.sets[i]?.sides?.[side]
     const cur = fresh ? fresh[col.f] : 0
-    if (col.f === 'w') return setSide(i, side, col.f, stepWeight(cur, col.step, dir))
+    if (col.f === 'w') return setSide(i, side, col.f, (col.ladder ? ladderStep(col.ladder, cur, dir) : stepWeight(cur, col.step, dir)))
     // Reps step by one per side: repCol's step of two keeps the *combined* total evenly
     // splittable, but here each side is logged directly, so one tap is one rep.
     const step = col.f === 'r' ? 1 : col.step

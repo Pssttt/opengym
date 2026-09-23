@@ -20,6 +20,7 @@ import { modeOf, repStep, rerampWarmups, isBw, isPerSide, entryExcluded } from '
 import { EXIDX, isAssisted } from './exercises.js'
 import { isWarmupRow, isSideSet, syncSideAggregate, makeSideSet } from './workout-model.js'
 import { normalizeRepRange } from './rep-range.js'
+import { ladderOf, ladderStep, ladderDeload } from './weight-steps.js'
 
 export const POLICIES = ['off', 'linear', 'greyskull', 'double', 'time']
 
@@ -327,8 +328,17 @@ export function nextPrescription(S, cfg, routine) {
   // reward for a clean session is less help, and a stall means taking more (issue #232). Only
   // the direction changes — the step, the grid and the stall counting are the same.
   const assisted = isAssisted(cfg)
-  const harder = (weight, step) => (assisted ? Math.max(0, addStep(weight, -step, inc)) : addStep(weight, step, inc))
-  const easier = weight => (assisted ? addStep(weight, inc, inc) : deloadTo(weight, inc))
+  // Fork: an exercise with its own weight steps (lib/weight-steps.js) moves rung to rung — a
+  // double jump is two rungs — and deloads to the highest rung under the deload target.
+  const ladder = mode === 'reps' ? ladderOf(S, cfg.id) : null
+  const harder = (weight, step) => (ladder
+    ? ladderStep(ladder, weight, assisted ? -1 : 1, step > inc ? 2 : 1)
+    : assisted ? Math.max(0, addStep(weight, -step, inc)) : addStep(weight, step, inc))
+  const easier = weight => (ladder
+    ? (assisted ? ladderStep(ladder, weight, 1) : ladderDeload(ladder, weight, deloadFactorOf(cfg)))
+    : assisted ? addStep(weight, inc, inc) : deloadTo(weight, inc))
+  // How far a jump actually moved, for the explanation: on a ladder the rungs are uneven.
+  const moved = (from, to) => round1(Math.abs(to - from))
 
 
   const sessions = sessionsFor(S, cfg.id, cfg).filter(s => s.mode === mode)
@@ -381,7 +391,8 @@ export function nextPrescription(S, cfg, routine) {
   // weight remains the hard upper bound for the selected candidate.
   const epleyDeload = () => {
     // Epley reads load as the work done; on an assistance machine it is the work taken away.
-    if (assisted) return null
+    // A weight-step ladder has no even grid to search, so it takes the plain ladder deload.
+    if (assisted || ladder) return null
     if (mode !== 'reps' || (policy !== 'linear' && policy !== 'double')) return null
     const previous = last.target || {}
     const target = {
@@ -434,11 +445,14 @@ export function nextPrescription(S, cfg, routine) {
     // range, so hitting that recorded target is compliance with the plan, not "reached the
     // top". Double progression must not add weight until every set actually reaches the top
     // of the range (issue #278).
-    if (last.ok && last.low >= top) return {
-      policy, kind: 'up', weight: harder(w, inc), reps: bottom,
-      why: assisted
-        ? ['Top of the rep range in every set — {0} {1} less help, back to {2} reps.', inc, unit, bottom]
-        : ['Top of the rep range in every set — {0} {1} more, back to {2} reps.', inc, unit, bottom]
+    if (last.ok && last.low >= top) {
+      const up = harder(w, inc)
+      return {
+        policy, kind: 'up', weight: up, reps: bottom,
+        why: assisted
+          ? ['Top of the rep range in every set — {0} {1} less help, back to {2} reps.', moved(w, up), unit, bottom]
+          : ['Top of the rep range in every set — {0} {1} more, back to {2} reps.', moved(w, up), unit, bottom]
+      }
     }
     if (stalls >= deloadAt) {
       const selected = epleyDeload()
@@ -461,13 +475,14 @@ export function nextPrescription(S, cfg, routine) {
     // earned a double jump.
     const dbl = policy === 'greyskull' && last.goal > 0 && last.amrap >= last.goal * 2
     const step = dbl ? inc * 2 : inc
+    const up = harder(w, step)
     return {
-      policy, kind: 'up', weight: harder(w, step),
+      policy, kind: 'up', weight: up,
       why: dbl
-        ? ['Last set hit {0} reps — twice the target, so take a double jump of {1} {2}.', last.amrap, step, unit]
+        ? ['Last set hit {0} reps — twice the target, so take a double jump of {1} {2}.', last.amrap, moved(w, up), unit]
         : assisted
-          ? ['Every rep last time — {0} {1} less help.', step, unit]
-          : ['Every rep last time — {0} {1} more.', step, unit]
+          ? ['Every rep last time — {0} {1} less help.', moved(w, up), unit]
+          : ['Every rep last time — {0} {1} more.', moved(w, up), unit]
     }
   }
   if (stalls >= deloadAt) {
