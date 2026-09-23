@@ -1,0 +1,45 @@
+# Fork: opens an issue when upstream tags a release this fork has not merged yet, so upstream
+# fixes are noticed. Merging stays a manual step (FORK.md, "Pulling in upstream").
+name: Upstream release
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Compare with upstream's latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          latest=$(gh release view -R DuarteSantos8/openGym --json tagName -q .tagName)
+          git fetch -q https://github.com/DuarteSantos8/openGym "refs/tags/$latest:refs/tags/upstream-$latest"
+          if git merge-base --is-ancestor "upstream-$latest" HEAD; then
+            echo "Up to date with $latest."
+            exit 0
+          fi
+          title="Upstream released $latest"
+          if gh issue list --state open --search "\"$title\" in:title" --json number -q '.[0].number' | grep -q .; then
+            echo "Issue already open for $latest."
+            exit 0
+          fi
+          gh issue create --title "$title" --body "Upstream tagged [$latest](https://github.com/DuarteSantos8/openGym/releases/tag/$latest).
+
+          Merge it (see FORK.md):
+          \`\`\`bash
+          git fetch upstream --tags
+          git merge $latest
+          git status --short | awk '/^(DU|UD) /{print \$2}' | xargs git rm -q   # removed-language conflicts
+          git push
+          \`\`\`"
