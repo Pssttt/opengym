@@ -1,0 +1,92 @@
+# Fork: builds the signed openGym+ APK and publishes it as a GitHub Release.
+#
+# Needs three repository secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_B64       base64 of the release keystore
+#   ANDROID_KEYSTORE_PASSWORD  the keystore (and key) password
+#   ANDROID_KEY_ALIAS          the key alias
+# KEEP THAT KEYSTORE: updates must be signed with the same key or Android refuses to
+# install them over an existing copy.
+name: APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One release at a time, in order; never cancel a build that may be mid-publish.
+concurrency:
+  group: apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # Capacitor 7's Android Gradle Plugin needs JDK 21.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - name: Build web bundle and sync into android/
+        working-directory: frontend
+        env:
+          VITE_UPDATE_CHECK: '0'
+        run: npm run build:mobile
+      - name: Build release APK
+        working-directory: frontend/android
+        run: ./gradlew --no-daemon assembleRelease
+      - name: Sign
+        working-directory: frontend
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -eu
+          if [ -z "$ANDROID_KEYSTORE_B64" ]; then
+            echo "FATAL: ANDROID_KEYSTORE_B64 is not set; an unsigned APK cannot be installed." >&2
+            exit 1
+          fi
+          VER="$(node -p "require('./package.json').version")-psst.$GITHUB_RUN_NUMBER"
+          UNSIGNED=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign \
+            --ks "$RUNNER_TEMP/release.jks" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --key-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --out "openGym-plus-$VER.apk" "$RUNNER_TEMP/aligned.apk"
+          rm -f "$RUNNER_TEMP/release.jks"
+          "$BT/apksigner" verify --print-certs "openGym-plus-$VER.apk"
+          sha256sum "openGym-plus-$VER.apk" > "openGym-plus-$VER.apk.sha256"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+      - name: Publish release
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VER" \
+            "openGym-plus-$VER.apk" "openGym-plus-$VER.apk.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "openGym+ $VER" \
+            --notes "Built from $GITHUB_SHA."
