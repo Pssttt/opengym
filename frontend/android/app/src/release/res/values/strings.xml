@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- Fork-only: a distinct name so this build is never mistaken for the official app it
+         installs next to. Merged over src/main/res for the release variant only. -->
+    <string name="app_name">openGym+</string>
+    <string name="title_activity_main">openGym+</string>
+</resources>

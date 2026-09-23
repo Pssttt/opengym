@@ -1,0 +1,16 @@
+// Fork-only overrides, kept out of build.gradle so upstream merges rarely conflict.
+android {
+    defaultConfig {
+        // Every CI build must outrank the one before it or Android refuses the update.
+        // Upstream's versionCode stays the major part, so an upstream bump still sorts higher.
+        def run = (System.getenv('GITHUB_RUN_NUMBER') ?: '0') as int
+        versionCode versionCode * 10000 + run
+        versionNameSuffix "-psst.${run}"
+    }
+    buildTypes {
+        release {
+            // Its own app id, so it installs next to the official app instead of over it.
+            applicationIdSuffix ".psst"
+        }
+    }
+}
