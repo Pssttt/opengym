@@ -10,9 +10,10 @@ export const lastActivityAt = A => Math.max(A?.lastSetAt || 0, A?.start || 0)
 
 // The end time to record for a stale session, or null when it should be left alone: nothing
 // running, a backfilled session (it has its own end), no set ticked at all (nothing to keep),
-// or still within the idle window.
+// an edit of a saved workout, or still within the idle window.
 export function staleActiveEnd(A, now = Date.now()) {
-  if (!A || A.backfill || !A.start) return null
+  // An open edit of a saved workout (active.editingWorkoutId) is not a session being trained.
+  if (!A || A.backfill || A.editingWorkoutId || !A.start) return null
   const anyDone = (A.entries || []).some(e => (e.sets || []).some(s => s.done))
   if (!anyDone) return null
   const last = lastActivityAt(A)

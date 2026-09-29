@@ -29,6 +29,10 @@ describe('staleActiveEnd', () => {
     expect(staleActiveEnd(A, A.start + 67 * H)).toBeNull()
   })
 
+  it('never closes an edit of a saved workout', () => {
+    expect(staleActiveEnd(session({ editingWorkoutId: 'w1' }), 1_000_000 + 67 * H)).toBeNull()
+  })
+
   it('never closes a backfilled session or a missing one', () => {
     expect(staleActiveEnd(session({ backfill: true }), 1_000_000 + 67 * H)).toBeNull()
     expect(staleActiveEnd(null)).toBeNull()
