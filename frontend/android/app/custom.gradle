@@ -11,6 +11,9 @@ android {
         release {
             // Its own app id, so it installs next to the official app instead of over it.
             applicationIdSuffix ".psst"
+            // Upstream (#136) keeps 32-bit ARM too; every phone this build goes on is arm64, which
+            // takes the scanner's 32-bit library (~3 MB) off as well.
+            ndk { abiFilters.clear(); abiFilters 'arm64-v8a' }
         }
     }
 }
