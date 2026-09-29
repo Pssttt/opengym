@@ -27,8 +27,12 @@ const notify = () => { subs.forEach(f => f()) }
 let lastShowEn = undefined
 let lastEnOnly = undefined
 
+// Fork: a build made with VITE_ENGLISH_ONLY=1 always runs in English. The fork's CI also leaves
+// the language packs out of that build, so the globs above find nothing to load.
+export const ENGLISH_ONLY = (import.meta.env || {}).VITE_ENGLISH_ONLY === '1'
+
 export async function setLang(l, showEn, enOnly) {
-  if (!LANGS[l]) l = 'en'
+  if (ENGLISH_ONLY || !LANGS[l]) l = 'en'
   const show = showEn !== false
   const only = enOnly === true
   // Both display switches participate in the early-exit, so toggling the parens or the

@@ -45,9 +45,15 @@ jobs:
         working-directory: frontend
       - run: npm test
         working-directory: frontend
+      # English only: the packs stay in the source, so upstream merges and the tests above are
+      # untouched, and are removed from this build only (VITE_ENGLISH_ONLY, lib/i18n.js).
+      - name: Leave the language packs out
+        working-directory: frontend
+        run: rm -rf src/locales src/instr src/exercise-names
       - name: Build web bundle and sync into android/
         working-directory: frontend
         env:
+          VITE_ENGLISH_ONLY: '1'
           VITE_UPDATE_REPO: ${{ github.repository }}
           APP_VERSION_SUFFIX: psst.${{ github.run_number }}
         run: npm run build:mobile

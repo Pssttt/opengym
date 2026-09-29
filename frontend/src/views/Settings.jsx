@@ -12,7 +12,7 @@ import { unlock, playOnSilentSupported, vibrateSupported } from '../lib/sound.js
 import { api, webauthnOK, passkeyRegister, IS_ANDROID } from '../lib/api.js'
 import { pushSupported, enablePush, disablePush, sendTestPush, syncPushSubscription } from '../lib/push.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
-import { t, LANGS, INSTR_LANGS, EXERCISE_NAME_LANGS, baseLang } from '../lib/i18n.js'
+import { t, LANGS, INSTR_LANGS, EXERCISE_NAME_LANGS, baseLang, ENGLISH_ONLY } from '../lib/i18n.js'
 import { effectiveLang } from '../lib/default-lang.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { MOBILE, isAndroid, shareExport, shareExportBlob, syncReminder } from '../lib/mobile.js'
@@ -334,14 +334,14 @@ export default function Settings() {
 
     {/* ---------- general ---------- */}
     <Section title={t('General')} footer={t('Switching the unit offers to convert every stored weight.')}>
-      <SelectRow
+      {!ENGLISH_ONLY && <SelectRow
         icon="globe" iconTint="var(--blue)" title={t('Language')}
         value={lang} onChange={v => update(s => { s.lang = v; s.langAuto = false })}
         options={Object.entries(LANGS).map(([k, name]) => ({
           value: k, label: name,
           subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
         }))}
-      />
+      />}
       {EXERCISE_NAME_LANGS.includes(baseLang(lang)) && <>
         <Row icon="dumbbell" iconTint="var(--purple)" title={t('English exercise names')}
           subtitle={t('Show the English name in parentheses next to the translated one.')}>
