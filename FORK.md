@@ -26,15 +26,17 @@ Fork-only changes are kept in separate files where possible (`custom.gradle`,
 `src/release/res`) so merges rarely conflict.
 
 ## Fork-only changes
-- - Auto-finish: a workout idle for 3 h ends at its last set (`frontend/src/lib/auto-finish.js`)
+Based on upstream v1.3.9 (rebuilt 2026-09-29; the v1.3.8-based history is on `fork-v1.3.8`).
+- English only: `VITE_ENGLISH_ONLY=1` forces English and hides the Language row; CI deletes the
+  language packs from the build only, so the source and its tests match upstream
+- Auto-finish: a workout idle for 3 h ends at its last set (`frontend/src/lib/auto-finish.js`)
 - Weight steps: per-exercise real machine weights; progression and the set +/- move rung to
   rung (`frontend/src/lib/weight-steps.js`, exercise menu → Weight steps)
 - In-app update check reads this fork's GitHub releases (`VITE_UPDATE_REPO`, build number in
   the version via `APP_VERSION_SUFFIX`)
-- Offline exercise media: routine and recent exercises' images/GIFs kept on the phone
-  (`frontend/src/lib/media-cache.js`, upstream issue #281)
-- arm64-only APK (upstream issue #136), about 15 MB smaller
-- Weekly upstream-release check that opens an issue (`.github/workflows/upstream-release.yml`)
+- Offline exercise media in the APK: routine and recent exercises' images/GIFs kept on the
+  phone (`frontend/src/lib/media-cache.js`; upstream's #281 covers only the installed web app)
+- arm64-only APK (upstream keeps 32-bit ARM too)
 - Separate app id and name, CI-number versionCode (`frontend/android/app/custom.gradle`)
-- Update check disabled at build time (`frontend/src/lib/update.js`)
-- Upstream's mirror, Pages and Docker publish workflows removed
+- Weekly upstream-release check that opens an issue (`.github/workflows/upstream-release.yml`)
+- Upstream's mirror, Pages, Docker publish and Dependabot configs removed
