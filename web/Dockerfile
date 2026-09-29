@@ -24,7 +24,10 @@ COPY frontend/ ./
 # image built between two releases calls itself the same thing, and "which build are you running?"
 # cannot be answered from the phone. Unset, the app reports package.json's version as before.
 ARG APP_BUILD=""
-RUN APP_BUILD="$APP_BUILD" npm run build
+# Fork: the English-only switch and the fork's build number (see FORK.md). Both empty upstream.
+ARG VITE_ENGLISH_ONLY=""
+ARG APP_VERSION_SUFFIX=""
+RUN APP_BUILD="$APP_BUILD" VITE_ENGLISH_ONLY="$VITE_ENGLISH_ONLY" APP_VERSION_SUFFIX="$APP_VERSION_SUFFIX" npm run build
 
 FROM nginx:alpine
 # Same reason as in api/Dockerfile: alpine fixes land faster than the nginx image is rebuilt.

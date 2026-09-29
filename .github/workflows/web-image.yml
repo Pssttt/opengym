@@ -1,0 +1,50 @@
+# Fork: builds the openGym+ web image (the frontend served by nginx) for the self-hosted server
+# and pushes it to ghcr.io. The API is unchanged from upstream, so the server runs upstream's
+# published API image of the same version.
+name: Web image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'web/**'
+      - '.github/workflows/web-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: web-image
+  cancel-in-progress: false
+
+jobs:
+  web:
+    # Native ARM (free for public repositories): the server is an ARM box, and the nginx stage
+    # runs `apk upgrade`, which would otherwise need emulation.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      # English only, as in the APK: the packs are left out of this build (lib/i18n.js).
+      - name: Leave the language packs out
+        run: rm -rf frontend/src/locales frontend/src/instr frontend/src/exercise-names
+      - name: Tags
+        run: |
+          ver="$(node -p "require('./frontend/package.json').version")-psst.$GITHUB_RUN_NUMBER"
+          echo "VER=$ver" >> "$GITHUB_ENV"
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/opengym-web" >> "$GITHUB_ENV"
+      - run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push
+        run: |
+          docker build -f web/Dockerfile \
+            --build-arg VITE_ENGLISH_ONLY=1 \
+            --build-arg APP_VERSION_SUFFIX="psst.$GITHUB_RUN_NUMBER" \
+            --build-arg VERSION="$VER" --build-arg VCS_REF="$GITHUB_SHA" \
+            --label org.opencontainers.image.source="https://github.com/$GITHUB_REPOSITORY" \
+            -t "$IMAGE:$VER" -t "$IMAGE:latest" .
+          docker push "$IMAGE:$VER"
+          docker push "$IMAGE:latest"
+          echo "Pushed $IMAGE:$VER" >> "$GITHUB_STEP_SUMMARY"
